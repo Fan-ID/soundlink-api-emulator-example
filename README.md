@@ -20,9 +20,9 @@ npm start
 
 `start` keeps two listeners:
 
-| Process | URL | Role |
-| --- | --- | --- |
-| Viewer | http://127.0.0.1:8788 | List and campaign detail, rendered on the server |
+| Process  | URL                   | Role                                                |
+| -------- | --------------------- | --------------------------------------------------- |
+| Viewer   | http://127.0.0.1:8788 | List and campaign detail, rendered on the server    |
 | Emulator | http://127.0.0.1:8787 | Public API subset plus `/__emulator` harness routes |
 
 Set `PORT` to move the viewer. The emulator port stays `8787` so the curl examples below keep working. Restart `npm start` to seed the campaigns again. State is memory only.
@@ -39,13 +39,13 @@ Open http://127.0.0.1:8788 and follow each row into the detail page. Detail show
 - `GET /v1/campaigns/{id}/metrics/overview`
 - `GET /v1/wallet` — one wallet for the whole process. `reserved` stays `0` because create settles immediately (`available === balance`).
 
-| Example | Status | How it was produced | What to look at |
-| --- | --- | --- | --- |
-| Creating | `creating` | `POST /v1/campaigns` only | Spend and listeners are 0. The 70 is already gone from the wallet. |
-| Active | `active` | `activate`, then `set_spend` 40 | Seeded audience (120 listeners) plus fees on the 40. Wallet is not credited yet. |
-| Meta rejected | `inactive` | `reject_meta` | Status changed. Wallet did not. |
-| Stopped | `stopped` | `activate`, `set_spend` 40, `POST /v1/campaigns/{id}/stop` | Refund of unspent gross, once. |
-| Ended | `ended` | `activate`, `set_spend` 10, harness `end` | Same refund formula as stop, with less spend. |
+| Example       | Status     | How it was produced                                        | What to look at                                                                  |
+| ------------- | ---------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Creating      | `creating` | `POST /v1/campaigns` only                                  | Spend and listeners are 0. The 70 is already gone from the wallet.               |
+| Active        | `active`   | `activate`, then `set_spend` 40                            | Seeded audience (120 listeners) plus fees on the 40. Wallet is not credited yet. |
+| Meta rejected | `inactive` | `reject_meta`                                              | Status changed. Wallet did not.                                                  |
+| Stopped       | `stopped`  | `activate`, `set_spend` 40, `POST /v1/campaigns/{id}/stop` | Refund of unspent gross, once.                                                   |
+| Ended         | `ended`    | `activate`, `set_spend` 10, harness `end`                  | Same refund formula as stop, with less spend.                                    |
 
 `activate` and `set_spend` are harness calls. They are not Public API routes. From another process on the same machine:
 
@@ -102,12 +102,12 @@ A second campaign in `check` is rejected with no spend. The balance does not mov
 
 Omitting `plan` and `feeRate` makes the fee `0`, so the refund is `committed − mediaSpend`. Pass `plan` or `feeRate` when the test needs a rate. Presets are local test values, not the public price list.
 
-| Plan | Fee |
-| --- | --- |
-| _(omit)_ | `0` |
-| `free`, `artist_pro`, `studio` | `0.2` |
-| `label_power` | `0.15` |
-| `enterprise` | `0.1` |
+| Plan                           | Fee    |
+| ------------------------------ | ------ |
+| _(omit)_                       | `0`    |
+| `free`, `artist_pro`, `studio` | `0.2`  |
+| `label_power`                  | `0.15` |
+| `enterprise`                   | `0.1`  |
 
 ## Insufficient credit
 
@@ -165,30 +165,32 @@ await soundlink.campaigns.stop(data.campaignId, { idempotencyKey: "stop-1" });
 
 ## Routes this example uses
 
-| Call | Where |
-| --- | --- |
-| `GET /v1/ping` | `check` |
-| `GET /v1/wallet` | `check` and the viewer |
-| `GET /v1/campaigns` | viewer list |
-| `POST /v1/campaigns` | `check` and the seed |
-| `GET /v1/campaigns/{id}` | `check` and the detail page |
-| `GET /v1/campaigns/{id}/metrics/overview` | `check` and the detail page |
-| `POST /v1/campaigns/{id}/stop` | `check` and the Stopped example |
+| Call                                          | Where                                                               |
+| --------------------------------------------- | ------------------------------------------------------------------- |
+| `GET /v1/ping`                                | `check`                                                             |
+| `GET /v1/wallet`                              | `check` and the viewer                                              |
+| `GET /v1/campaigns`                           | viewer list                                                         |
+| `POST /v1/campaigns`                          | `check` and the seed                                                |
+| `GET /v1/campaigns/{id}`                      | `check` and the detail page                                         |
+| `GET /v1/campaigns/{id}/metrics/overview`     | `check` and the detail page                                         |
+| `POST /v1/campaigns/{id}/stop`                | `check` and the Stopped example                                     |
 | `activate`, `reject_meta`, `set_spend`, `end` | harness, in-process or `POST /__emulator/campaigns/{id}/transition` |
-| `setWallet` | `check`, for the 402 retry |
+| `setWallet`                                   | `check`, for the 402 retry                                          |
 
 Also implemented by the emulator and unused here: `GET /v1/strategies`, `POST /__emulator/wallet`, `POST /__emulator/reset`.
 
-## Errors the check expects
+## Errors
 
-| Case | Status | Code |
-| --- | --- | --- |
-| Wallet below the committed debit | 402 | `insufficient_credit` |
-| Missing or empty `Idempotency-Key` on create or stop | 400 | `invalid_request` |
-| Same key, different body | 409 | `idempotency_key_conflict` |
-| `dailyBudget` below 10 | 422 | `invalid_daily_budget` |
-| Bad `durationDays` | 422 | `invalid_duration_days` |
-| Missing or wrong API key | 401 | `invalid_api_key` |
+`check` asserts `402 insufficient_credit`. The other rows are what the emulator returns. They are not asserted in `check`.
+
+| Case                                                 | Status | Code                       |
+| ---------------------------------------------------- | ------ | -------------------------- |
+| Wallet below the committed debit                     | 402    | `insufficient_credit`      |
+| Missing or empty `Idempotency-Key` on create or stop | 400    | `invalid_request`          |
+| Same key, different body                             | 409    | `idempotency_key_conflict` |
+| `dailyBudget` below 10                               | 422    | `invalid_daily_budget`     |
+| Bad `durationDays`                                   | 422    | `invalid_duration_days`    |
+| Missing or wrong API key                             | 401    | `invalid_api_key`          |
 
 Stop hashes `{ campaignId }` only. Stopping while `creating` is `400` and releases the key. A second stop on `stopped` or `ended` does not refund again.
 

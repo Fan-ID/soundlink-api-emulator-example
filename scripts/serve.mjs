@@ -42,7 +42,12 @@ const examples = [
     title: "Stopped",
     summary:
       "Same spend as Active, then public stop. Refund is 70 − 40 / 0.9 = 25.56, credited once.",
-    steps: ["POST /v1/campaigns", "activate", "set_spend 40", "POST /v1/campaigns/{id}/stop"],
+    steps: [
+      "POST /v1/campaigns",
+      "activate",
+      "set_spend 40",
+      "POST /v1/campaigns/{id}/stop",
+    ],
   },
   {
     id: "",
@@ -54,9 +59,11 @@ const examples = [
 ];
 
 function assertOk(result, label) {
-  if (result.error || result.data == null) {
-    const code = result.error?.code ?? "empty";
-    throw new Error(`${label}: ${code}`);
+  if (result.error) {
+    throw new Error(`${label}: ${result.error.code}`);
+  }
+  if (result.data == null) {
+    throw new Error(`${label}: empty data`);
   }
   return result.data;
 }
@@ -174,17 +181,19 @@ function findExample(campaignId) {
 }
 
 async function renderIndex() {
-  const list = assertOk(await soundlink.campaigns.list({ page: 1, pageSize: 20 }), "list");
+  const list = assertOk(
+    await soundlink.campaigns.list({ page: 1, pageSize: 20 }),
+    "list",
+  );
   const byId = new Map(list.items.map((item) => [item.campaignId, item]));
   const wallet = assertOk(await soundlink.wallet.get(), "wallet");
   const rows = examples
     .map((example) => {
       const item = byId.get(example.id);
-      const status = item?.status ?? "missing";
       return `<tr>
         <td><a href="/campaigns/${escapeHtml(example.id)}">${escapeHtml(example.title)}</a></td>
-        <td>${escapeHtml(status)}</td>
-        <td>${escapeHtml(formatValue(item?.totalBudget))}</td>
+        <td>${escapeHtml(item.status)}</td>
+        <td>${escapeHtml(formatValue(item.totalBudget))}</td>
         <td>${escapeHtml(example.summary)}</td>
       </tr>`;
     })
@@ -192,8 +201,7 @@ async function renderIndex() {
 
   return layout(
     "Emulator examples",
-    `<p><a href="/">Examples</a></p>
-    <h1>Campaign examples</h1>
+    `<h1>Campaign examples</h1>
     <p class="note">Seeded once at startup against <code>${escapeHtml(emulatorServer.baseUrl)}</code> with plan <code>enterprise</code> (fee 0.1) and a starting balance of 1000. Restart <code>npm start</code> to seed again.</p>
     <p>Wallet now: balance ${escapeHtml(wallet.balance)}, available ${escapeHtml(wallet.available)}, reserved ${escapeHtml(wallet.reserved)}.</p>
     <table>
@@ -207,15 +215,26 @@ async function renderDetail(campaignId) {
   const example = findExample(campaignId);
   const campaignResult = await soundlink.campaigns.get(campaignId);
   if (campaignResult.error?.code === "campaign_not_found") {
-    return { status: 404, html: layout("Not found", "<h1>Campaign not found</h1><p><a href=\"/\">Back</a></p>") };
+    return {
+      status: 404,
+      html: layout(
+        "Not found",
+        '<h1>Campaign not found</h1><p><a href="/">Back</a></p>',
+      ),
+    };
   }
   const campaign = assertOk(campaignResult, "campaign");
-  const overview = assertOk(await soundlink.metrics.overview(campaignId), "overview");
+  const overview = assertOk(
+    await soundlink.metrics.overview(campaignId),
+    "overview",
+  );
   const wallet = assertOk(await soundlink.wallet.get(), "wallet");
-  const title = example?.title ?? campaignId;
-  const steps = (example?.steps ?? [])
-    .map((step) => `<li><code>${escapeHtml(step)}</code></li>`)
-    .join("");
+  const title = example ? example.title : campaignId;
+  const steps = example
+    ? `<h2>Steps</h2><ol>${example.steps
+        .map((step) => `<li><code>${escapeHtml(step)}</code></li>`)
+        .join("")}</ol>`
+    : "";
 
   return {
     status: 200,
@@ -223,8 +242,8 @@ async function renderDetail(campaignId) {
       title,
       `<p><a href="/">Examples</a></p>
       <h1>${escapeHtml(title)}</h1>
-      <p>${escapeHtml(example?.summary ?? "Campaign from this emulator process.")}</p>
-      ${steps ? `<h2>Steps</h2><ol>${steps}</ol>` : ""}
+      ${example ? `<p>${escapeHtml(example.summary)}</p>` : ""}
+      ${steps}
       <h2>GET /v1/campaigns/{id}</h2>
       ${definitionList(campaign)}
       <h2>GET /v1/campaigns/{id}/metrics/overview</h2>
@@ -239,7 +258,7 @@ async function renderDetail(campaignId) {
 }
 
 const viewer = createServer(async (request, response) => {
-  const url = new URL(request.url ?? "/", "http://127.0.0.1");
+  const url = new URL(request.url, "http://127.0.0.1");
   try {
     if (request.method === "GET" && url.pathname === "/") {
       const html = await renderIndex();
@@ -250,7 +269,9 @@ const viewer = createServer(async (request, response) => {
     const detail = /^\/campaigns\/([^/]+)$/.exec(url.pathname);
     if (request.method === "GET" && detail) {
       const page = await renderDetail(decodeURIComponent(detail[1]));
-      response.writeHead(page.status, { "content-type": "text/html; charset=utf-8" });
+      response.writeHead(page.status, {
+        "content-type": "text/html; charset=utf-8",
+      });
       response.end(page.html);
       return;
     }

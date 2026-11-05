@@ -161,8 +161,8 @@ try {
   }
   assertEqual(denied.error.code, "insufficient_credit", "402 code");
   assertEqual(denied.error.status, 402, "402 status");
-  assertEqual(denied.error.details?.available, 10, "402 available");
-  assertEqual(denied.error.details?.required, committed, "402 required");
+  assertEqual(denied.error.details.available, 10, "402 available");
+  assertEqual(denied.error.details.required, committed, "402 required");
 
   low.setWallet(500);
   const toppedUp = await unwrap(
