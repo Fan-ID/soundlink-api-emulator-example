@@ -39,6 +39,17 @@ const examples = [
   },
   {
     id: "",
+    title: "Didn't run",
+    summary:
+      "reject_meta left the wallet unchanged. stop then refunded this campaign's full 70 because media spend stayed 0. That 70 is already inside the shared wallet total on the list. It is not an extra balance on top of the other examples.",
+    steps: [
+      "POST /v1/campaigns",
+      "reject_meta",
+      "POST /v1/campaigns/{id}/stop",
+    ],
+  },
+  {
+    id: "",
     title: "Stopped",
     summary:
       "Same spend as Active, then public stop. Refund is 70 − 40 / 0.9 = 25.56, credited once.",
@@ -159,6 +170,16 @@ const rejected = await createCampaign();
 emulator.transition(rejected.campaignId, "reject_meta");
 examples[2].id = rejected.campaignId;
 
+const notRun = await createCampaign();
+emulator.transition(notRun.campaignId, "reject_meta");
+assertOk(
+  await soundlink.campaigns.stop(notRun.campaignId, {
+    idempotencyKey: "example-stop-unspent",
+  }),
+  "stop unspent",
+);
+examples[3].id = notRun.campaignId;
+
 const stopped = await createCampaign();
 emulator.transition(stopped.campaignId, "activate");
 emulator.transition(stopped.campaignId, "set_spend", 40);
@@ -168,13 +189,13 @@ assertOk(
   }),
   "stop",
 );
-examples[3].id = stopped.campaignId;
+examples[4].id = stopped.campaignId;
 
 const ended = await createCampaign();
 emulator.transition(ended.campaignId, "activate");
 emulator.transition(ended.campaignId, "set_spend", 10);
 emulator.transition(ended.campaignId, "end");
-examples[4].id = ended.campaignId;
+examples[5].id = ended.campaignId;
 
 function findExample(campaignId) {
   return examples.find((example) => example.id === campaignId);

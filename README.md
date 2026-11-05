@@ -44,6 +44,7 @@ Open http://127.0.0.1:8788 and follow each row into the detail page. Detail show
 | Creating      | `creating` | `POST /v1/campaigns` only                                  | Spend and listeners are 0. The 70 is already gone from the wallet.               |
 | Active        | `active`   | `activate`, then `set_spend` 40                            | Seeded audience (120 listeners) plus fees on the 40. Wallet is not credited yet. |
 | Meta rejected | `inactive` | `reject_meta`                                              | Status changed. Wallet did not.                                                  |
+| Didn't run    | `stopped`  | `reject_meta`, then `POST /v1/campaigns/{id}/stop`         | Spend stayed 0, so stop refunded this campaign's full 70.                        |
 | Stopped       | `stopped`  | `activate`, `set_spend` 40, `POST /v1/campaigns/{id}/stop` | Refund of unspent gross, once.                                                   |
 | Ended         | `ended`    | `activate`, `set_spend` 10, harness `end`                  | Same refund formula as stop, with less spend.                                    |
 
@@ -72,6 +73,16 @@ curl -s http://127.0.0.1:8787/v1/campaigns/CAMPAIGN_ID/metrics/overview \
 curl -s http://127.0.0.1:8787/v1/wallet \
   -H "Authorization: Bearer sk_emulator_test"
 ```
+
+## What the wallet number means
+
+Reconcile against `GET /v1/wallet`. This emulator does not keep a second credit ledger. A refund is the Soundlink wallet credit on `stop` or harness `end`.
+
+`reject_meta` does not credit the wallet. The Didn't run row is that case after `stop`: media spend 0, so the refund is the full 70. Stopping while the campaign is still `creating` is `400`. The path for a campaign that never went live is `reject_meta`, then `stop`.
+
+`25.56` is only the enterprise fee (`0.1`) with media spend 40. Another `plan` or `feeRate` produces a different refund. With no plan and no `feeRate`, the fee is `0` and the refund is `committed − mediaSpend`.
+
+Harness `end` settles the same way as `stop` and sets status `ended`. Nothing here reaches an end date on its own.
 
 ## Wallet math
 
