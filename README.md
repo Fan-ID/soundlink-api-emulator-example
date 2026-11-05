@@ -8,32 +8,32 @@ The contract notes for the emulator live with the SDK: `node_modules/soundlink/d
 
 ## Run
 
-Requires Node 18 or newer.
+Requires Node 20 or newer.
 
 ```bash
 npm install
 npm run check
-npm start
+npm run dev
 ```
 
-`check` binds `127.0.0.1` on a random port, runs the assertions below, and exits.
+`check` binds `127.0.0.1` on a random port, runs the assertions below, and exits. It does not start the UI.
 
-`start` keeps two listeners:
+`dev` is a Next.js app on http://127.0.0.1:3000. The first request starts the emulator and seeds the campaigns. Restart `npm run dev` to seed again. State is memory only.
 
 | Process  | URL                   | Role                                                |
 | -------- | --------------------- | --------------------------------------------------- |
-| Viewer   | http://127.0.0.1:8788 | List and campaign detail, rendered on the server    |
+| UI       | http://127.0.0.1:3000 | List and campaign detail                            |
 | Emulator | http://127.0.0.1:8787 | Public API subset plus `/__emulator` harness routes |
 
-Set `PORT` to move the viewer. The emulator port stays `8787` so the curl examples below keep working. Restart `npm start` to seed the campaigns again. State is memory only.
+The emulator port stays `8787` so the curl examples below keep working. If that port is already taken, the page says so. Stop the other process and reload. `npm run build` then `npm start` serves the same UI without the dev server.
 
-The API key in this repo is `sk_emulator_test`. The viewer never sends it to the browser. Curl and the SDK send it as `Authorization: Bearer sk_emulator_test`.
+The API key in this repo is `sk_emulator_test`. The UI never sends it to the browser. Curl and the SDK send it as `Authorization: Bearer sk_emulator_test`.
 
-## What the viewer seeds
+## What the app seeds
 
 Plan preset `enterprise` (fee `0.1`). Starting balance `1000`. Every campaign is `dailyBudget` 10 for 7 days, so create debits **70**.
 
-Open http://127.0.0.1:8788 and follow each row into the detail page. Detail shows three reads:
+Open http://127.0.0.1:3000 and follow each card into the detail page. Detail shows three reads:
 
 - `GET /v1/campaigns/{id}` — includes `strategyType`, `generation` (`3`), and `autoRenew`. The list summary omits `strategyType`.
 - `GET /v1/campaigns/{id}/metrics/overview`
@@ -58,7 +58,7 @@ curl -s -X POST "http://127.0.0.1:8787/__emulator/campaigns/CAMPAIGN_ID/transiti
 
 `set_spend` sends `{ "action": "set_spend", "mediaSpendUsd": 40 }`. Spend must be between 0 and the committed 70, and only while the campaign is `creating`, `active`, or `inactive`.
 
-Public reads while `npm start` is running:
+Public reads while `npm run dev` is running:
 
 ```bash
 curl -s http://127.0.0.1:8787/v1/campaigns \
@@ -179,12 +179,12 @@ await soundlink.campaigns.stop(data.campaignId, { idempotencyKey: "stop-1" });
 | Call                                          | Where                                                               |
 | --------------------------------------------- | ------------------------------------------------------------------- |
 | `GET /v1/ping`                                | `check`                                                             |
-| `GET /v1/wallet`                              | `check` and the viewer                                              |
-| `GET /v1/campaigns`                           | viewer list                                                         |
+| `GET /v1/wallet`                              | `check` and the header                                              |
+| `GET /v1/campaigns`                           | home page                                                           |
 | `POST /v1/campaigns`                          | `check` and the seed                                                |
 | `GET /v1/campaigns/{id}`                      | `check` and the detail page                                         |
 | `GET /v1/campaigns/{id}/metrics/overview`     | `check` and the detail page                                         |
-| `POST /v1/campaigns/{id}/stop`                | `check` and the Stopped example                                     |
+| `POST /v1/campaigns/{id}/stop`                | `check`, Didn't run, and Stopped                                    |
 | `activate`, `reject_meta`, `set_spend`, `end` | harness, in-process or `POST /__emulator/campaigns/{id}/transition` |
 | `setWallet`                                   | `check`, for the 402 retry                                          |
 
